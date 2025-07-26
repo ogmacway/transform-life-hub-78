@@ -1,5 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { User, LogOut } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 import { Button } from "@/components/ui/button";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import ContentCard from "@/components/ContentCard";
@@ -21,6 +24,9 @@ const Index = () => {
     title: string;
     url: string;
   } | null>(null);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const navigate = useNavigate();
 
   const contentData = [
     {
@@ -63,6 +69,36 @@ const Index = () => {
     setSelectedPDF(null);
   };
 
+  useEffect(() => {
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (!session?.user) {
+          navigate('/auth');
+        }
+      }
+    );
+
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      
+      if (!session?.user) {
+        navigate('/auth');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
   return (
     <div className="min-h-screen">
       {/* Header */}
@@ -71,7 +107,11 @@ const Index = () => {
           <User className="h-8 w-8" />
         </div>
         <div className="absolute top-4 right-4">
-          <Button variant="ghost" className="text-white hover:bg-white/20">
+          <Button 
+            variant="ghost" 
+            className="text-white hover:bg-white/20"
+            onClick={handleLogout}
+          >
             <LogOut className="h-5 w-5 mr-2" />
             Sair
           </Button>
